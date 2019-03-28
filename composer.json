@@ -1,0 +1,14 @@
+{
+    "name": "bugcat/shortcrypt",
+    "description": "shortcrypt",
+    "type": "package",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "bug",
+            "email": "i@bug.cat"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}
