@@ -23,7 +23,11 @@ class CryptNumber extends BaseCrypt
         //'big' => ['max_cnt' => 15, 'max_val' => 3656158440062975, 'tag_len' => 3], 
     ];
     
+    //前缀干扰字符数
     const PRE_CHAR_NUM = 1;
+    
+    //加密层次 每增加一级 每个数字就会多记录一位
+    const CRYPT_LEVEL = 0;
     
     
     /**
@@ -45,13 +49,18 @@ class CryptNumber extends BaseCrypt
         //第一步 添加前缀干扰字符
         self::setJamChar($cryptstr, self::PRE_CHAR_NUM, $sensitive);
         
-        //第二步 将数组加密进去
+        //第二步 记录数字组的数量 
+        $tag_num = '';
+        $num_long = count($nums);
+        $max_rand = floor(36 / $info['max_cnt']);
+        $rand = mt_rand(0, $max_rand - 1);
+        $tag_num = $rand * $info['max_cnt'] + $num_long;
+        $tag_num = self::ext_convert($tag_num, 10, 36, 'lower_order');
+        
+        //第三步 将数组加密进去
         $tags = ''; //记录每个数字标记的信息
         $num_str = ''; //记录数字组的字符串
-        $str_len = self::PRE_CHAR_NUM + $info['tag_len']; //计算出加密结果的最小长度
-        
-        //获取数字组的数量 
-        $num_long = count($nums);
+        $str_len = self::PRE_CHAR_NUM + 1 + $info['tag_len']; //计算出加密结果的最小长度
         $keys = array_keys($nums);
         shuffle($keys); //将数字组的键顺序打乱
         //按新顺序遍历数字组
@@ -69,10 +78,10 @@ class CryptNumber extends BaseCrypt
             $tags = self::ext_convert($tags, 2, 36, 'lower_order');
         }
         
-        //第三步 组装字符串
-        $cryptstr .= $tags . $num_str;
+        //第四步 组装字符串
+        $cryptstr .= $tag_num . $tags . $num_str;
         
-        //每四步 在末尾添加干扰字符
+        //每五步 在末尾添加干扰字符
         if ( $long > 0 ) {
             self::setJamChar($cryptstr, $long - $str_len, $sensitive);
         }
@@ -89,10 +98,21 @@ class CryptNumber extends BaseCrypt
      */
     final static protected function deNumber($type, $cryptstr)
     {
-        //第一步 去除前缀干扰字符
-        $str = substr($cryptstr, self::PRE_CHAR_NUM);
+        //第一步 去除前缀干扰字符 
+        $prechar = self::strsub($cryptstr, 0, self::PRE_CHAR_NUM);
         
-        //第二步 
+        //第二步 取出记录数字组的数量
+        $tag_num = self::strsub($cryptstr, 0, 1);
+        $tag_num = self::ext_convert($tag_num, 36, 10, 'lower_order');
+        $tag_num = $tag_num % self::TYPE[$type]['max_cnt'];
+        
+        //第三步 取出数字标记的信息
+        $tags = substr($str, 0, self::TYPE[$type]['tag_len']);
+        
+        //第四步 开始分解加密字符串
+        
+        return $tags;
+        
         $arr = self::decryptArr($type, $str);
         
         

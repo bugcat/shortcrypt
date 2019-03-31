@@ -43,5 +43,47 @@ class BaseCrypt
     {
         throw new \Exception($err);
     }
+    
+    
+    /**
+     * 删除并返回字符串的一部分 Delete and return part of a string.
+     *      基于 substr ( string $string , int $start [, int $length ] ) : string
+     *
+     * @param  string  $string  原字符串
+     * @param  int     $start   必需。规定在字符串的何处开始。
+     *                           正数 - 在字符串的指定位置开始
+     *                           负数 - 在从字符串结尾开始的指定位置开始
+     *                           0 - 在字符串中的第一个字符处开始
+     * @param  int     $length  可选。规定被返回字符串的长度。默认是直到字符串的结尾。
+     *                           正数 - 从 start 参数所在的位置返回的长度
+     *                           负数 - 从字符串末端返回的长度
+     * @param  int     $mode    可选。规定原字符串保留的部分。默认是0。
+     *                           0  - 左右皆保留 
+     *                           1  - 只保留右侧部分
+     *                           -1 - 只保留左侧部分
+     * @return string   
+     */
+    static public function strsub(string & $string , int ...$ints)
+    {
+        $start = $ints[0];
+        if ( isset($ints[1]) ) {
+            $length = $ints[1];
+            $str = substr($string, $start, $length);
+            $right = substr($string, $start + $length);
+        } else {
+            $str = substr($string, $start);
+            $right = '';
+        }
+        $mode = $ints[2] ?? 0;
+        $left = substr($string, 0, $start);
+        if ( $mode > 0 ) {
+            $string = $right;
+        } elseif ( $mode < 0 ) {
+            $string = $left;
+        } else {
+            $string = $left . $right;
+        }
+        return $str;
+    }
 }
 
