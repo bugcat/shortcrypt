@@ -44,6 +44,43 @@ class BaseCrypt
         throw new \Exception($err);
     }
     
+    /**
+     * 添加干扰字符
+     *
+     * @param  string $string 
+     * @param  int    $length 字符数量
+     * @param  int    $pid    字符池ID 支持1-7
+     * @return string    
+     */
+    final static protected function setJamChar(string & $string, int $length, int $pid = 7)
+    {
+        //判断参数
+        if ( $pid < 1 || $pid > 7 ) {
+            self::exception('The parameter $pid must be between 1 and 7.');
+        }
+        //定义字符池
+        $pool = [
+            0 => '0123456789',
+            1 => 'abcdefghijklmnopqrstuvwxyz',
+            2 => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        ];
+        //获取字符池ID
+        $pid_str = sprintf('%03s', decbin($pid));
+        $pid_arr = str_split( strrev($pid_str) );
+        //生成需要使用的字符池
+        $str_pool = '';
+        foreach ( $pid_arr as $k => $p ) {
+            if ( 1 == $p ) {
+                $str_pool .= $pool[$k];
+            }
+        }
+        //随机生成字符
+        for ( $i = 0; $i < $length; $i++ ) {
+            $string .= substr(str_shuffle($str_pool), 0, 1);
+        }
+        return true;
+    }
+    
     
     /**
      * 删除并返回字符串的一部分 Delete and return part of a string.

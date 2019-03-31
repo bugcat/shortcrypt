@@ -27,7 +27,7 @@ class CryptNumber extends BaseCrypt
     const PRE_CHAR_NUM = 1;
     
     //加密层次 每增加一级 每个数字就会多记录一位
-    const CRYPT_LEVEL = 0;
+    const CRYPT_LEVEL = 0; //TODO
     
     
     /**
@@ -47,7 +47,7 @@ class CryptNumber extends BaseCrypt
         $cryptstr = ''; 
         
         //第一步 添加前缀干扰字符
-        self::setJamChar($cryptstr, self::PRE_CHAR_NUM, $sensitive);
+        self::setJamChar($cryptstr, self::PRE_CHAR_NUM, 2);
         
         //第二步 记录数字组的数量 
         $tag_num = '';
@@ -83,7 +83,7 @@ class CryptNumber extends BaseCrypt
         
         //每五步 在末尾添加干扰字符
         if ( $long > 0 ) {
-            self::setJamChar($cryptstr, $long - $str_len, $sensitive);
+            self::setJamChar($cryptstr, $long - $str_len, 3);
         }
         
         return $cryptstr;
@@ -94,7 +94,7 @@ class CryptNumber extends BaseCrypt
      *
      * @param  str  $type 加密类型
      * @param  str  $cryptstr 密文 
-     * @return arr  $nums 加密结果
+     * @return arr  加密结果
      */
     final static protected function deNumber($type, $cryptstr)
     {
@@ -107,15 +107,22 @@ class CryptNumber extends BaseCrypt
         $tag_num = $tag_num % self::TYPE[$type]['max_cnt'];
         
         //第三步 取出数字标记的信息
-        $tags = substr($str, 0, self::TYPE[$type]['tag_len']);
+        $tags = self::strsub($cryptstr, 0, self::TYPE[$type]['tag_len']);
+        $tags = self::ext_convert($tags, 36, 2, 'lower_order');
+        $tags = sprintf("%0{$tag_num}s", $tags);
+        $tag_arr = str_split($tags);
         
         //第四步 开始分解加密字符串
+        $nums = [];
+        foreach ( $tag_arr as $tag ) {
+            self::decryptArr($nums, $type, $cryptstr, $tag);
+        }
         
-        return $tags;
-        
-        $arr = self::decryptArr($type, $str);
-        
-        
+        $arr = [];
+        //第五步 还原数组的顺序
+        for ( $i = 0; $i < $tag_num; $i++ ) {
+            $arr[$i] = $nums[$i]; //如有需要可以转成int型 注意范围
+        }
         return $arr;
     }
     
@@ -145,24 +152,7 @@ class CryptNumber extends BaseCrypt
         return $info;
     }
     
-    /**
-     * 添加干扰字符
-     *
-     * @param  string $string 
-     * @param  int    $length 字符数量
-     * @param  bool   $sensitive
-     * @return string    
-     */
-    final static private function setJamChar(& $string, $length, $sensitive)
-    {
-        $pool = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-        $str = '';
-        for ( $i = 0; $i < $length; $i++ ) {
-            $str .= substr(str_shuffle($pool), 0, 1);
-        }
-        $string .= $sensitive ? $str : strtolower($str);
-        return true;
-    }
+    
     
     /**
      * 加密其中一个数字
@@ -216,53 +206,42 @@ class CryptNumber extends BaseCrypt
     /**
      * 将加密的数字组一一解析出来
      *
-     * @param  str $type    加密方式
+     * @param  arr $nums     解析后的数字组
+     * @param  str $type     加密方式
      * @param  str $cryptstr 加密后的数字字符串
+     * @param  int $tag      标记信息
      * @return arr 返回解密后的数字组
      */
-    final static private function decryptArr($type, $cryptstr)
+    final static private function decryptArr(& $nums, $type, & $cryptstr, int $tag)
     {
-        $tags = substr($cryptstr, 0, self::TYPE[$type]['tag_len']);
-        return $tags;
+        //一 解析第一位字符 及加密标记
+        $sign = self::strsub($cryptstr, 0, 1);
+        $sign = self::ext_convert($sign, 36, 10, 'lower_order');
+        $sign += $tag * 36;
         
-        if ( in_array($type, ['small', 'medium']) ) {
-            //$tags = self::ext_convert($tags, 2, 36, 'lower_order');
-        }
-        //先将这个数字转成36进制
-        //TODO 最好让每一位数字的加密方式不同 这样在有相同数字时结果也不同
-        //待优化更优算法
-        $num_36 = self::ext_convert($number, 10, 36, 'lower_order');
-        $num_len = strlen($num_36);
-        //根据不同类型 得到不同的特征码 特征码是两位十进制数
+        //二 解析得到原数字键及加密后的字符长度
+        $sign = sprintf('%02s', $sign);
+        $sign_arr = str_split($sign);
+        $key = 0;
+        $num_len = 0;
         if ( in_array($type, ['lot', 'small', 'medium']) ) {
             //十位是36进制的长度减一 个位是数字原来的键
-            $sign = ($num_len - 1) * 10 + $k;
+            $num_len = $sign_arr[0] + 1;
+            $key = $sign_arr[1];
         } else {
             //十位是数字原来的键 个位是36进制的长度减一
-            $sign = $k * 10 + (strlen($num_36) - 1);
+            $key = $sign_arr[0];
+            $num_len = $sign_arr[1] + 1;
         }
-        switch ( $type ) {
-            case 'lot':
-            case 'less':
-                //标记不会超过29 故无需记录标记信息
-                break;  
-            case 'small':
-            case 'medium':
-                //标记不会超过69 故需记录二进制标记信息
-                if ( $sign >= 36 ) {
-                    //$sign最大值为69所以不用考虑72+的情况
-                    $tags .= '1';
-                    $sign -= 36;
-                } else {
-                    $tags .= '0';
-                }
-                break;
-            default:
-                self::exception('The $type value is invalid.');
-        }
-        $sign = self::ext_convert($sign, 10, 36, 'lower_order');
-        $num_str .= $sign . $num_36;
-        return $num_len + 1;
+        
+        //三 取出加密后的字符 并转换回来
+        $number = self::strsub($cryptstr, 0, $num_len);
+        $number = self::ext_convert($number, 36, 10, 'lower_order');
+        
+        //四 记录到数组中
+        $nums[$key] = $number;
+        
+        return true;
     }
     
 }
